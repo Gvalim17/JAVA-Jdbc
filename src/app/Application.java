@@ -1,23 +1,18 @@
 package app;
 
-import java.awt.Container;
+import dao.ContactDao;
+import model.Contact;
+
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableColumn;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.sql.SQLException;
 import java.util.List;
+import java.awt.Color;
 
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JScrollPane;
-import javax.swing.JTable;
-import javax.swing.JTextField;
-import javax.swing.table.DefaultTableModel;
-import javax.swing.table.TableColumn;
-
-import dao.ContactDao;
-import model.Contact;
 
 public class Application {
     private static DefaultTableModel tableModel;
@@ -97,8 +92,14 @@ public class Application {
         id.setBounds(480, 350, 40, 20);
         box.add(id);
         JButton btnDelete = new JButton("Delete");
-        btnDelete.setBounds(460, 375, 80, 20);
+        btnDelete.setBounds(460, 375, 90, 20);
         box.add(btnDelete);
+        JButton btnDeleteAll = new JButton("Delete All");
+        btnDeleteAll.setBackground(Color.RED);
+        btnDeleteAll.setForeground(Color.WHITE);
+        btnDeleteAll.setBounds(460, 425, 90, 20);
+        box.add(btnDeleteAll);
+
 
         // Clear
         JButton btnClear = new JButton("Clear");
@@ -134,73 +135,81 @@ public class Application {
                             createEmail.setText(contact.getEmail());
                             createAddress.setText(contact.getAddress());
                             displayContact(contact);
+                        } else {
+                            searchId.setEnabled(true);
+                            btnSearch.setEnabled(true);
+                            searchId.setText("");
+                            searchId.requestFocus();
+                            JOptionPane.showMessageDialog(null,"ID not found", "Error", JOptionPane.ERROR_MESSAGE);
                         }
                     }
-
-
                 } catch (SQLException e1) {
                     e1.printStackTrace();
+
                 }
             }
         });
+
+
+
         btnSave.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 String x = createName.getText();
                 String y = createEmail.getText();
                 String z = createAddress.getText();
-
-
                 String id = searchId.getText();
 
-                if (id.isEmpty()){
-                    ContactDao dao = null;
-                    try {
-                        dao = new ContactDao();
-                    } catch (SQLException ex) {
-                        throw new RuntimeException(ex);
+                if (id.isEmpty()) {
+                    if (!x.isEmpty() && !y.isEmpty()) {
+                        ContactDao dao = null;
+                        try {
+                            dao = new ContactDao();
+                        } catch (SQLException ex) {
+                            throw new RuntimeException(ex);
+                        }
+                        Contact newContact = new Contact();
+                        newContact.setName(x);
+                        newContact.setEmail(y);
+                        newContact.setAddress(z);
+                        try {
+                            dao.createContact(newContact);
+                        } catch (SQLException ex) {
+                            throw new RuntimeException(ex);
+                        }
+                        createName.setText("");
+                        createEmail.setText("");
+                        createAddress.setText("");
+                    } else {
+                        JOptionPane.showMessageDialog(window, "Name and Email are required for creating a new contact.",
+                                "Validation Error", JOptionPane.ERROR_MESSAGE);
                     }
-                    Contact newContact = new Contact();
-                    newContact.setName(x);
-                    newContact.setEmail(y);
-                    newContact.setAddress(z);
-                    try {
-                        dao.createContact(newContact);
-                    } catch (SQLException ex) {
-                        throw new RuntimeException(ex);
-                    }
-
-                    createName.setText("");
-                    createEmail.setText("");
-                    createAddress.setText("");
                 } else {
                     int question = JOptionPane.showConfirmDialog(window, "Do you want to update??", "Confirm",
                             JOptionPane.YES_NO_OPTION);
                     if (question == JOptionPane.YES_OPTION) {
                         try {
-                                long idL = Long.parseLong(id);
-                                ContactDao dao1 = new ContactDao();
-                                Contact contact1 = dao1.getContactById(idL);
-                                if (contact1 != null) {
-                                    contact1.setName(x);
-                                    contact1.setEmail(y);
-                                    contact1.setAddress(z);
-                                    dao1.updateContact(contact1);
+                            long idL = Long.parseLong(id);
+                            ContactDao dao1 = new ContactDao();
+                            Contact contact1 = dao1.getContactById(idL);
+                            if (contact1 != null) {
+                                contact1.setName(x);
+                                contact1.setEmail(y);
+                                contact1.setAddress(z);
+                                dao1.updateContact(contact1);
 
-                                }
+                            }
                             createName.setText("");
                             createEmail.setText("");
                             createAddress.setText("");
                             btnSearch.setEnabled(true);
                             searchId.setEnabled(true);
                             searchId.setText("");
-                            
-                        }   catch (NumberFormatException | SQLException e1) {
+
+                        } catch (NumberFormatException | SQLException e1) {
                             e1.printStackTrace();
-                            System.out.println("Error processing the ID or database operation.");
                         }
 
-
-                }
+                    }
                 }
                 try {
                     ContactDao dao = new ContactDao();
@@ -210,8 +219,8 @@ public class Application {
                     throw new RuntimeException(ex);
                 }
             }
-            
         });
+
         btnClear.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 searchId.setText("");
@@ -220,9 +229,49 @@ public class Application {
                 createAddress.setText("");
                 btnSearch.setEnabled(true);
                 searchId.setEnabled(true);
-                clearTable();
+
+
+                try {
+                    ContactDao dao = null;
+                    dao = new ContactDao();
+                    List<Contact> allContacts = dao.getListContacts();
+                    displayContacts(allContacts);
+                } catch (SQLException ex) {
+                    throw new RuntimeException(ex);
+                }
+
             }
         });
+
+        btnDeleteAll.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                try {
+                    ContactDao dao = new ContactDao();
+                    int question1 = JOptionPane.showConfirmDialog(window, "Do you want Delete ALL ??", "Confirm",
+                            JOptionPane.YES_NO_OPTION);
+                    if (question1 == JOptionPane.YES_OPTION) {
+                        int question2 = JOptionPane.showConfirmDialog(window, "Do you sure about that ??", "Confirm",
+                                JOptionPane.YES_NO_OPTION);
+                        if (question2 == JOptionPane.YES_OPTION) {
+                            int question3 = JOptionPane.showConfirmDialog(window, "Really man? Will do it without a Where ??", "Confirm",
+                                    JOptionPane.YES_NO_OPTION);
+                            if (question3 == JOptionPane.YES_OPTION) {
+                                dao.removeAllContacts();
+                            }
+                        }
+
+                    }
+
+                    dao = new ContactDao();
+                    List<Contact> allContacts = dao.getListContacts();
+                    displayContacts(allContacts);
+                } catch (SQLException ex) {
+                    throw new RuntimeException(ex);
+                }
+
+            }
+        });
+
         btnDelete.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 String x = id.getText().trim();
@@ -231,6 +280,7 @@ public class Application {
                     dao = new ContactDao();
                     long y = Long.parseLong(x);
                     dao.removeContact(y);
+
 
                     id.setText("");
                 } catch (SQLException e1) {
@@ -246,10 +296,9 @@ public class Application {
 
             }
         });
-
-
         return window;
     }
+
 
 
     private static void displayContacts(List<Contact> contacts) {
@@ -280,7 +329,7 @@ public class Application {
         return texto.matches("\\d+");
     }
 
-    public static void main(String[] args)  {
+    public static void main(String[] args) {
         app();
         ContactDao dao = null;
         try {
